@@ -1,0 +1,19 @@
+{
+  "name": "fromscratch",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "start": "node ./bin/www",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "main" : "./bin/www",
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "debug": "^2.2.0",
+    "express": "^4.13.4",
+    "path": "^0.12.7",
+    "serve-favicon": "^2.3.0"
+  }
+}

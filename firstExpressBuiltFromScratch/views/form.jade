@@ -1,0 +1,7 @@
+extends layout
+
+block content
+    p Hi #{names.join(",")}
+    form(method='post')
+        input(name='name')
+
