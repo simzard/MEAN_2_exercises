@@ -1,0 +1,15 @@
+extends layout
+
+block content
+    h1 Add Joke
+    form(action='/storeJoke', method='post')
+        label Joke:
+        textarea(name='joke', placeholder='Enter joke here')
+        button(name='submit', type='submit', value='Submit') Create
+
+    br
+    a(href='/joke') <- Back
+
+    if result
+        p
+            strong #{result}

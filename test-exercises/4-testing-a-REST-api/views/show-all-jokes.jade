@@ -1,0 +1,11 @@
+extends layout
+
+block content
+    h1 All Jokes
+    each joke, i in jokes
+        ul
+            li #{joke}
+
+    a(href='/joke') <- Back
+
+
