@@ -6,11 +6,14 @@ angular.module('connect4', [])
             tokenIndex = 0, IN_DROP = false;
 
         var game;  //Refactor into a service
-
+        $scope.playText = "Play";
         $scope.username = "";
-
+        $scope.status = "";
 
         $scope.newGame = function () {
+            $scope.opopnent = null;
+            $scope.status = "";
+            $scope.playText = "Play";
             MOVES = 0, tokenIndex = 0;
             if ($scope.username.length < 2) {
                 $scope.error = "You must provide your user name (2 characters min.)";
@@ -22,42 +25,56 @@ angular.module('connect4', [])
                 game = response.data;
                 $scope.board = game.board;
                 $scope.turn = game.turn;
+
+                // if your username is the same as player 1 your opponent must be player2
+                // and vice versa
                 $scope.opponent = $scope.username == game.player1 ? game.player2 : game.player1;
-                //$scope.opponent = game.player2;
+                if ($scope.opponent == game.player1) {
+                    $scope.color = 'BLACK';
+                    $scope.oppColor = 'RED';
+                } else {
+                    $scope.color = 'RED';
+                    $scope.oppColor = 'BLACK';
+                }
                 $scope.winner = null;
-                $scope.p1 = game.player1;
-                $scope.p2 = game.player2;
-                $scope.againstServer = game.player2IsServer;
+
+                function poll() {
+                    $http({method: "GET", url: "/gameapi/game"}).then(function ok(response) {
+                        game = response.data;
+
+                        if (game.player2) {
+                            if ($scope.color == 'RED') {
+                                $scope.status = game.player2 + " joined the game";
+                                $scope.playText = "Play against: " + game.player2;
+                            }
+
+                            $timeout.cancel(timer);
+
+                        } else {
+                            $timeout(function () {
+                                poll();
+                            }, 2000);
+                        }
+                    }, function err(response) {
+                    });
+                };
+
+                // every second second untill a user has joined the game scan for potential opponents
+                var timer = $timeout(function () {
+                    poll();
+                }, 2000);
+
+
+                if ($scope.opponent)
+                    $scope.playText = 'Play against... ' + $scope.opponent;
+
             }, function err(response) {
                 console.log("Error: " + response.status + ", " + response.statusText);
                 $scope.error = response.data.error.message;
             });
         }
 
-        $scope.startGame = function () {
-            alert('username: ' + $scope.username + ' opponent: ' + $scope.opponent);
-            alert('p1:' + $scope.p1 + ' p2: ' + $scope.p2);
-            // figure out if an oppenent has logged in to the game
-            // if not just play against the server
-            if ($scope.p1 == $scope.opponent) { // if we are player 2 we should start a game against player 1
-                $scope.initHumanGame();
-                do {
-                    $timeout(function () {
-                        $scope.getHumanMove();
-                    }, 1000);
-
-                } while (game.turn != 'R');
-                alert('Now you can move P2');
-            } else {
-                alert('Initializing game against the server');
-                $scope.initComputerGame();
-
-            }
-
-        };
-
         function sendMoveToServer(col, row, player) {
-
             moveData = {"gameId": game.gameId, "row": row, "col": col, "player": player};
             $http({method: "PUT", url: "/gameapi/move", data: moveData}).then(function ok(response) {
                 $scope.error = null;
@@ -77,9 +94,69 @@ angular.module('connect4', [])
 
         $scope.computersTurn = false;
 
-        $scope.isPlayer2 = function () {
-            return $scope.username == $scope.p2;
-        }
+        $scope.play = function () {
+            // get the current game, to see if any player has joined
+            $http({method: "GET", url: "/gameapi/game"}).then(function ok(response) {
+                    game = response.data;
+
+                    if (game.player2 == null) { // server
+
+                        if (confirm("No players to play against\nPlay against server instead?") == true) {
+                            $scope.initComputerGame();
+                        }
+                    } else { // human
+                        $scope.opponent = $scope.username == game.player1 ? game.player2 : game.player1;
+                        alert("Playing vs: " + $scope.opponent);
+                        if ($scope.color == 'BLACK') {
+                            $scope.status = 'Waiting for RED...';
+
+                            // wait for RED player (p1) untill he/she has taken their first move
+                            var timer = $timeout(function () {
+                                poll();
+                            }, 2000);
+
+                            function poll() {
+
+                                $http({method: "GET", url: "/gameapi/game"}).then(function ok(response) {
+                                    game = response.data;
+                                    $scope.turn = game.turn;
+                                    if ($scope.turn == BLACK) {
+                                        $scope.status = 'RED has moved!'
+                                        $timeout.cancel(timer);
+                                        // now RED must have moved
+                                        $scope.winner = game.winner;
+                                        // manipulate $scope.turn since we are in BLACK's turn,
+                                        // but the previous turns color was RED
+                                        // which we want to show
+                                        $scope.turn = $scope.turn === 'R' ? 'B' : 'R';
+                                        $scope.placeToken(game.lastMove.col, true);
+                                    } else {
+
+                                        timer = $timeout(function () {
+                                            poll();
+                                        }, 2000);
+
+                                    }
+
+
+                                }, function err(response) {
+                                    $scope.error = response.data.error.message;
+                                })
+                            }
+
+
+                        }
+
+                    }
+
+                }, function err(response) {
+                    $scope.error = response.data.error.message;
+                }
+            );
+
+// offer option to play against server if there is no waiting player
+
+        };
 
         $scope.initComputerGame = function () {
             $http({
@@ -95,51 +172,93 @@ angular.module('connect4', [])
             });
         }
 
-        $scope.initHumanGame = function () {
-            alert('huMAN');
-            $http({
-                method: "POST",
-                url: "/gameapi/init_human_opponent",
-                data: {id: game.gameId}
-            }).then(function ok(response) {
-                game = response.data;
-                $scope.opponent = response.data.player2;
-                $scope.error = null;
-            }, function err(response) {
-                $scope.error = response.data.error.message;
-            });
-        }
-
-        $scope.getHumanMove = function () {
-            $http({method: "PUT", url: "/gameapi/humanMove", data: {id: game.gameId}}).then(function ok(response) {
-                game = response.data;
-                //We don't use the updated board from the server. Only the lastMove and winner status is used
-                //This is done, to get the animation of a black piece being placed.
-                $scope.winner = game.winner;
-                $scope.placeToken(game.lastMove.col, true);
-            }, function err(response) {
-                $scope.error = response.data.error.message;
-            });
-        }
-
         $scope.getServerMove = function () {
-            // return a computer move if playing against the server OR a player move
+            if (game.player2IsServer) {
+                $http({
+                    method: "PUT",
+                    url: "/gameapi/computerMove",
+                    data: {id: game.gameId}
+                }).then(function ok(response) {
+                    game = response.data;
+                    //We don't use the updated board from the server. Only the lastMove and winner status is used
+                    //This is done, to get the animation of a black piece being placed.
+                    $scope.winner = game.winner;
+                    $scope.placeToken(game.lastMove.col, true);
+                }, function err(response) {
+                    $scope.error = response.data.error.message;
+                });
+            } else { // human
+                if ($scope.color == 'RED') {
+                    $scope.status = 'Waiting for BLACK...';
 
-            $http({
-                method: "PUT",
-                url: "/gameapi/computerMove",
-                data: {id: game.gameId}
-            }).then(function ok(response) {
-                game = response.data;
-                //We don't use the updated board from the server. Only the lastMove and winner status is used
-                //This is done, to get the animation of a black piece being placed.
-                $scope.winner = game.winner;
-                $scope.placeToken(game.lastMove.col, true);
-            }, function err(response) {
-                $scope.error = response.data.error.message;
-            });
+                    // wait for BLACK player (p2) untill he/she has taken their next move
+                    var timer = $timeout(function () {
+                        poll();
+                    }, 2000);
 
-        }
+                    function poll() {
+                        if ($scope.winner) {
+                            $timeout.cancel(timer);
+                        }
+                        $http({method: "GET", url: "/gameapi/game"}).then(function ok(response) {
+                            game = response.data;
+                            $scope.turn = game.turn;
+                            if ($scope.turn == RED) {
+                                $scope.status = 'BLACK has moved!';
+                                $timeout.cancel(timer);
+                                // now BLACK must have moved
+                                $scope.winner = game.winner;
+                                // invert turn i.e. colors to draw the correct opponent color
+                                $scope.turn = $scope.turn === 'R' ? 'B' : 'R';
+                                $scope.placeToken(game.lastMove.col, true);
+                            } else {
+                                timer = $timeout(function () {
+                                    poll();
+                                }, 2000);
+
+
+                            }
+
+
+                        }, function err(response) {
+                            $scope.error = response.data.error.message;
+                        });
+                    }
+
+
+                } else if ($scope.color == 'BLACK') {
+                    $scope.status = 'Waiting for RED...';
+                    // wait for RED player (p1) untill he/she has taken his/her next move
+                    var timer = $timeout(function () {
+                        poll();
+                    }, 2000);
+
+                    function poll() {
+                        if ($scope.winner) {
+                            $timeout.cancel(timer);
+                        }
+                        $http({method: "GET", url: "/gameapi/game"}).then(function ok(response) {
+                            game = response.data;
+                            $scope.turn = game.turn;
+                            if ($scope.turn == BLACK) {
+                                $scope.status = 'RED has moved!';
+                                $timeout.cancel(timer);
+                                // now RED must have moved
+                                $scope.winner = game.winner;
+                                $scope.turn = $scope.turn === 'R' ? 'B' : 'R';
+                                $scope.placeToken(game.lastMove.col, true);
+                            } else {
+                                timer = $timeout(function () {
+                                    poll();
+                                }, 2000);
+                            }
+                        }, function err(response) {
+                            $scope.error = response.data.error.message;
+                        });
+                    }
+                }
+            }
+        };
 
         $scope.setStyling = function (value) {
             if (value === 'R') {
@@ -149,31 +268,38 @@ angular.module('connect4', [])
                 return {"backgroundColor": "#000000"};
             }
             return {"backgroundColor": "white"};
-        }
+        };
 
         $scope.placeToken = function (column, remoteMove) {
             $scope.error = null;
             if ($scope.winner != null && remoteMove === undefined) {
                 return;
             }
-            if ((remoteMove === undefined) && (game.turn === 'B')) {
+
+            if ($scope.color == 'RED' && (remoteMove === undefined) && (game.turn === 'B')) {
                 $scope.error = "Not your turn to move";
                 return;
             }
+
+            if ($scope.color == 'BLACK' && (remoteMove === undefined) && (game.turn === 'R')) {
+                $scope.error = "Not your turn to move";
+                return;
+            }
+
             if (game !== undefined && (game.player1 === null || game.player2 === null )) {
                 $scope.error = "No opponent found for this game";
                 return;
             }
-
             if (!IN_DROP && $scope.board[column][0] === FREE) {
                 MOVES++;
                 tokenIndex = 0;
                 $scope.board[column][tokenIndex] = $scope.turn;
                 IN_DROP = true;
+
                 dropToken(column, $scope.turn, remoteMove);
                 $scope.turn = $scope.turn === 'R' ? 'B' : 'R';
             }
-        }
+        };
 
         function dropToken(column, player, remoteMove) {
 

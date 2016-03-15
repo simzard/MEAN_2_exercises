@@ -5,7 +5,16 @@ var gameApi = require("../game/conncect4");
 var sillyGlobalGameContainer = {
     waitingGame: null,
     game: null
-}
+};
+
+router.get("/game", function (req, res, next) {
+    if (sillyGlobalGameContainer.waitingGame) {
+        res.json(sillyGlobalGameContainer.waitingGame);
+    } else {
+        res.json(sillyGlobalGameContainer.game);
+    }
+
+});
 
 router.post("/newgame", function (req, res, next) {
     var playerObj = req.body;
@@ -19,27 +28,10 @@ router.post("/init_computer_opponent", function (req, res, next) {
     res.json(gameApi.initServerPlayer(obj.id, sillyGlobalGameContainer));
 });
 
-router.post("/init_human_opponent", function (req, res, next) {
-    var obj = req.body;
-    console.log(obj.id);
-    res.json(gameApi.initHumanPlayer(obj.id, sillyGlobalGameContainer));
-
-});
-
 router.put("/computerMove", function (req, res, next) {
     var obj = req.body;
     var gameId = obj.gameId;
     var game = sillyGlobalGameContainer.game;
-    game = gameApi.randomMove(game, 'B'); //Computer is always black
-    res.json(game);
-});
-
-router.put("/humanMove", function (req, res, next) {
-    var obj = req.body;
-    var gameId = obj.gameId;
-    var game = sillyGlobalGameContainer.game;
-
-
     game = gameApi.randomMove(game, 'B'); //Computer is always black
     res.json(game);
 });

@@ -15,5 +15,10 @@
     "morgan": "~1.6.1",
     "serve-favicon": "~2.3.0",
     "uuid": "^2.0.1"
+  },
+  "devDependencies": {
+    "chai": "^3.5.0",
+    "http": "0.0.0",
+    "request": "^2.69.0"
   }
 }

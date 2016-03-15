@@ -30,7 +30,7 @@ function gameFactory(playerName, gameContainer) {
         player1: playerName,
         player2: null,    //null for a true multiplayer game
         player2IsServer: false,
-        gameId: uuid.v4(),    //Must be provided a unique ID
+        gameId: uuid.v4(),
         turn: CONST.RED,
         board: [],      //The current board '-' Blank, 'R': Red, 'B' : Black
         moves: [],      //All moves performed in the game (each move as in lastMove)
@@ -63,15 +63,6 @@ function initServerPlayer(id, gameContainer) {
     gameContainer.game = newGame;
     return newGame;
 }
-
-function initHumanPlayer(id, gameContainer) {
-    var newGame = gameContainer.waitingGame;
-    newGame.player2IsServer = false;
-    gameContainer.waitingGame = null;
-    gameContainer.game = newGame;
-    return newGame;
-}
-
 
 function placeToken(col, row, player, game) {
     if (game.gameState !== CONST.RUNNING) {
@@ -166,7 +157,7 @@ function checkForWin(column, row, player, game) {
             break;
         }
         if (in_a_row >= 4) {
-            return gameOver(player);
+            return gameOver(player, game);
         }
     }
 
@@ -199,12 +190,13 @@ function checkForWin(column, row, player, game) {
     }
 
     if (game.moveCount === CONST.BOARD_COLS * CONST.BOARD_ROWS) {
-        gameOver();
+        gameOver(null, game);
     }
     return game;
 
 
     function gameOver(player, game) {
+
         game.gameState = CONST.GAME_OVER;
         if (player) {
             game.winner = player === 'R' ? game.player1 : game.player2;
@@ -215,39 +207,6 @@ function checkForWin(column, row, player, game) {
     }
 }
 
-/*
-function makePlayerMove(game, player, col) {
-    if (game.moveCount === CONST.BOARD_COLS * CONST.BOARD_ROWS) {
-        throw new Error("No moves possible. This game is over");
-    }
-
-    if (player !== game.turn) {
-        throw new Error("Not " + player + "'s turn");
-    }
-
-    var tokenPlaced = false;
-    //var col;
-    while (!tokenPlaced) {
-        //col = Math.floor(Math.random() * CONST.BOARD_COLS);
-        var row = CONST.BOARD_ROWS - 1;
-        console.log("XXX: " + col);
-
-        for (row; row >= 0; row--) {
-            if (game.board[col][row] === CONST.EMPTY_FIELD) {
-                game.board[col][row] = player;
-                game.moveCount++;
-                game.turn = game.turn === 'R' ? 'B' : 'R';
-                game.lastMove = {col: col, row: row, player: player};
-                game.moves.push(game.lastMove);
-                tokenPlaced = true;
-                break;
-            }
-        }
-    }
-    return checkForWin(col, row, player, game);
-}
-
-*/
 
 function makeRandomMove(game, player) {
     if (game.moveCount === CONST.BOARD_COLS * CONST.BOARD_ROWS) {
@@ -280,11 +239,8 @@ function makeRandomMove(game, player) {
     return checkForWin(col, row, player, game);
 }
 
-
 module.exports.connect4 = CONST;
 module.exports.placeToken = placeToken;
 module.exports.randomMove = makeRandomMove;
-//module.exports.makePlayerMove = makePlayerMove;
 module.exports.newGame = gameFactory;
 module.exports.initServerPlayer = initServerPlayer;
-module.exports.initHumanPlayer = initHumanPlayer;
